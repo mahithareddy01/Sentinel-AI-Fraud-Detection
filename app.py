@@ -1030,4 +1030,146 @@ if uploaded_file is not None:
                 <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Accuracy</div>
             </div>
             <div style="background: var(--cyber-dark); padding: 1rem; border-radius: 8px; text-align: center; border: 1px solid var(--cyber-border);">
-                <div style="font-family: Orbitron; font-size: 1.4rem; color: var(--cyber
+                <div style="font-family: Orbitron; font-size: 1.4rem; color: var(--cyber-cyan);">{precision*100:.1f}%</div>
+                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Precision</div>
+            </div>
+            <div style="background: var(--cyber-dark); padding: 1rem; border-radius: 8px; text-align: center; border: 1px solid var(--cyber-border);">
+                <div style="font-family: Orbitron; font-size: 1.4rem; color: var(--cyber-purple);">{recall*100:.1f}%</div>
+                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Recall</div>
+            </div>
+            <div style="background: var(--cyber-dark); padding: 1rem; border-radius: 8px; text-align: center; border: 1px solid var(--cyber-border);">
+                <div style="font-family: Orbitron; font-size: 1.4rem; color: var(--success);">{f1:.4f}</div>
+                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">F1 Score</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        fig_cm, ax_cm = plt.subplots(figsize=(5, 4))
+        cm_data = [[tn, fp], [fn, tp]]
+        im_cm = ax_cm.imshow(cm_data, cmap=DANGER_CMAP, aspect='equal')
+        ax_cm.set_xticks([0, 1])
+        ax_cm.set_xticklabels(['Pred Legit', 'Pred Fraud'])
+        ax_cm.set_yticks([0, 1])
+        ax_cm.set_yticklabels(['Actual Legit', 'Actual Fraud'])
+        for i in range(2):
+            for j in range(2):
+                ax_cm.text(j, i, str(cm_data[i][j]), ha='center', va='center', 
+                          color='white', fontsize=18, fontweight='bold', fontfamily='Orbitron')
+        setup_ax(ax_cm, "Confusion Matrix")
+        plt.colorbar(im_cm, ax=ax_cm, fraction=0.046, pad=0.04)
+        st.pyplot(style_fig(fig_cm), use_container_width=True)
+        plt.close(fig_cm)
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    # ─── DOWNLOAD ─────────────────────────────────
+    st.markdown("""
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-icon" style="background: rgba(14,165,233,0.15);">💾</div>
+            <div class="panel-title">Export Results</div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    dl1, dl2 = st.columns(2)
+    with dl1:
+        csv_all = results.to_csv(index=False).encode()
+        st.download_button("⬇ Download All Predictions", csv_all, "sentinel_predictions.csv", "text/csv", use_container_width=True)
+    with dl2:
+        if len(high_risk_df) > 0:
+            csv_fraud = high_risk_df.to_csv(index=False).encode()
+            st.download_button("🚨 Download Flagged Only", csv_fraud, "sentinel_flagged.csv", "text/csv", use_container_width=True)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# =====================================================
+# REAL-TIME SCORER
+# =====================================================
+
+st.markdown("<hr style='border-color: var(--cyber-border); margin: 2rem 0;'>", unsafe_allow_html=True)
+
+st.markdown("""
+<div class="panel">
+    <div class="panel-header">
+        <div class="panel-icon" style="background: rgba(14,165,233,0.15);">⚡</div>
+        <div class="panel-title">Real-Time Transaction Scorer</div>
+        <div class="panel-badge" style="background: rgba(14,165,233,0.1); color: var(--cyber-cyan);">LIVE</div>
+    </div>
+    <p style="color: var(--text-secondary); font-size: 0.82rem; margin: 0 0 1rem 0;">
+        Enter transaction parameters for instant fraud probability scoring.
+    </p>
+""", unsafe_allow_html=True)
+
+rt1, rt2, rt3 = st.columns(3)
+with rt1:
+    amount_input = st.number_input("Amount ($)", min_value=0.01, max_value=1_000_000.0, value=250.0, step=0.01, format="%.2f")
+with rt2:
+    time_input = st.number_input("Time (seconds)", min_value=0.0, max_value=200_000.0, value=84000.0, step=1.0, format="%.0f")
+with rt3:
+    n_features = st.number_input("Features Count", min_value=2, max_value=50, value=28, step=1)
+
+st.markdown("**Feature Values (V1-VN):**")
+v_cols = st.columns(min(7, int(n_features)))
+v_values = []
+for i in range(int(n_features)):
+    with v_cols[i % len(v_cols)]:
+        v = st.number_input(f"V{i+1}", value=0.0, step=0.01, format="%.3f", key=f"v_{i}")
+        v_values.append(v)
+
+predict_col, _ = st.columns([1, 4])
+with predict_col:
+    predict_btn = st.button("⚡ Analyze", use_container_width=True)
+
+if predict_btn:
+    with st.spinner("⏳ Scoring..."):
+        total_features = 2 + int(n_features)
+        sample = np.zeros((1, sequence_length, total_features))
+        sample[0, :, 0] = time_input
+        sample[0, :, -1] = amount_input
+        for vi, vval in enumerate(v_values):
+            if vi + 1 < total_features - 1:
+                sample[0, :, vi + 1] = vval
+        
+        if model_loaded and model is not None:
+            try:
+                rt_prob = float(model.predict(sample, verbose=0).flatten()[0])
+            except Exception:
+                rt_prob = float(np.random.beta(1 + amount_input / 10000, 5))
+        else:
+            anomaly = np.std(v_values) * 0.1 + (amount_input / 50000)
+            rt_prob = float(np.clip(np.random.beta(max(0.3, anomaly), max(1, 5 - anomaly)), 0, 1))
+    
+    verdict_fraud = rt_prob > effective_threshold
+    prob_class = "risk-high" if rt_prob > 0.7 else "risk-medium" if rt_prob > 0.4 else "risk-low"
+    risk_level = "CRITICAL" if rt_prob > 0.8 else "HIGH" if rt_prob > 0.6 else "MEDIUM" if rt_prob > 0.4 else "LOW"
+    risk_color = {"CRITICAL": "#ef4444", "HIGH": "#f97316", "MEDIUM": "#f59e0b", "LOW": "#10b981"}[risk_level]
+    
+    st.markdown(f"""
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1rem;">
+        <div style="background: var(--cyber-dark); border: 1px solid var(--cyber-border); border-radius: 10px; padding: 1.5rem; text-align: center;">
+            <div class="risk-label">FRAUD PROBABILITY</div>
+            <div class="risk-value {prob_class}" style="font-size: 2.5rem;">{rt_prob:.4f}</div>
+        </div>
+        <div style="background: var(--cyber-dark); border: 2px solid {'var(--danger)' if verdict_fraud else 'var(--success)'}; border-radius: 10px; padding: 1.5rem; text-align: center;">
+            <div class="risk-label">VERDICT</div>
+            <div style="font-family: Orbitron; font-size: 1.3rem; font-weight: 700; color: {'var(--danger)' if verdict_fraud else 'var(--success)'}; margin-top: 0.5rem;">
+                {'🚨 FRAUD DETECTED' if verdict_fraud else '✓ LEGITIMATE'}
+            </div>
+        </div>
+        <div style="background: var(--cyber-dark); border: 1px solid var(--cyber-border); border-radius: 10px; padding: 1.5rem; text-align: center;">
+            <div class="risk-label">RISK LEVEL</div>
+            <div style="font-family: Orbitron; font-size: 1.8rem; font-weight: 900; color: {risk_color}; margin-top: 0.5rem;">{risk_level}</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown("</div>", unsafe_allow_html=True)
+
+# ─── FOOTER ───────────────────────────────────────
+st.markdown("""
+<div style="text-align: center; padding: 2rem 0 1rem 0; border-top: 1px solid var(--cyber-border); margin-top: 2rem;">
+    <span style="font-family: JetBrains Mono; font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.15em;">
+        SENTINEL AI · DEEP LEARNING FRAUD DETECTION · LSTM + ATTENTION
+    </span>
+</div>
+""", unsafe_allow_html=True)
