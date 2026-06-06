@@ -476,8 +476,8 @@ NX_TEXT = "#8892a6"
 NX_GRID = "#1e2330"
 
 NX_CMAP = LinearSegmentedColormap.from_list("nx", ["#12161e", "#00e5a0", "#b0ffe0"], N=256)
-DANGER_CMAP = LinearSegmentalColormap.from_list("nx_danger", ["#12161e", "#7f1d1d", "#ff4757"], N=256)
-ATTN_CMAP = LinearSegmentalColormap.from_list("nx_attn", ["#12161e", "#0d3b4f", "#00c9db", "#00e5a0"], N=256)
+DANGER_CMAP = LinearSegmentedColormap.from_list("nx_danger", ["#12161e", "#7f1d1d", "#ff4757"], N=256)
+ATTN_CMAP = LinearSegmentedColormap.from_list("nx_attn", ["#12161e", "#0d3b4f", "#00c9db", "#00e5a0"], N=256)
 
 def nx_ax(ax, title=""):
     ax.set_facecolor(NX_BG)
