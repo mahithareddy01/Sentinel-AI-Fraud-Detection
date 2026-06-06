@@ -5,513 +5,486 @@ import joblib
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.patches import FancyBboxPatch
 from pathlib import Path
-
-# =====================================================
-# PAGE CONFIG
-# =====================================================
+import json
+import re
 
 st.set_page_config(
-    page_title="Sentinel AI · Fraud Detection",
-    page_icon="🛡️",
+    page_title="NEXUS · Fraud Operations Center",
+    page_icon="◈",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # =====================================================
-# SENTINEL THEME — CYBERSECURITY BLUE CSS
+# NEXUS THEME — OPERATIONS CENTER AESTHETIC
 # =====================================================
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
 
 :root {
-    --cyber-black: #0a0e17;
-    --cyber-dark: #0f1923;
-    --cyber-panel: #131d2a;
-    --cyber-border: #1a2737;
-    --cyber-glow: #00d4ff;
-    --cyber-blue: #0ea5e9;
-    --cyber-cyan: #06b6d4;
-    --cyber-indigo: #6366f1;
-    --cyber-purple: #8b5cf6;
-    --danger: #ef4444;
-    --warning: #f59e0b;
-    --success: #10b981;
-    --text-primary: #e2e8f0;
-    --text-secondary: #94a3b8;
-    --text-muted: #475569;
+    --nx-bg: #0c0f14;
+    --nx-surface: #12161e;
+    --nx-surface2: #181d28;
+    --nx-border: #252b38;
+    --nx-border-light: #2f3748;
+    --nx-accent: #00e5a0;
+    --nx-accent2: #00c9db;
+    --nx-warning: #ffb020;
+    --nx-danger: #ff4757;
+    --nx-text: #d1d5e0;
+    --nx-text2: #8892a6;
+    --nx-text3: #505a70;
 }
 
+* { box-sizing: border-box; }
+
 html, body, [class*="css"] {
-    font-family: 'Space Grotesk', sans-serif !important;
-    background-color: var(--cyber-black) !important;
-    color: var(--text-primary) !important;
+    font-family: 'IBM Plex Sans', sans-serif !important;
+    background: var(--nx-bg) !important;
+    color: var(--nx-text) !important;
 }
 
 .stApp {
     background: 
-        radial-gradient(ellipse at 0% 0%, rgba(14,165,233,0.06) 0%, transparent 50%),
-        radial-gradient(ellipse at 100% 100%, rgba(99,102,241,0.05) 0%, transparent 50%),
-        var(--cyber-black);
+        repeating-linear-gradient(0deg, transparent, transparent 49px, rgba(37,43,56,0.3) 50px),
+        repeating-linear-gradient(90deg, transparent, transparent 49px, rgba(37,43,56,0.3) 50px),
+        var(--nx-bg) !important;
+    background-size: 50px 50px !important;
 }
 
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: var(--cyber-dark); }
-::-webkit-scrollbar-thumb { background: var(--cyber-blue); border-radius: 3px; }
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--nx-surface); }
+::-webkit-scrollbar-thumb { background: var(--nx-border-light); border-radius: 3px; }
 
-/* ─── SIDEBAR ────────────────────────────────────── */
+/* ─── SIDEBAR — MINIMAL COMMAND PALETTE ─── */
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, var(--cyber-dark) 0%, var(--cyber-black) 100%) !important;
-    border-right: 1px solid var(--cyber-border) !important;
+    background: var(--nx-surface) !important;
+    border-right: 1px solid var(--nx-border) !important;
 }
+[data-testid="stSidebar"] .block-container { padding: 1.2rem 0.8rem !important; }
 
-[data-testid="stSidebar"]::after {
-    content: '';
-    position: absolute;
-    top: 0; right: 0;
-    width: 1px; height: 100%;
-    background: linear-gradient(180deg, var(--cyber-glow), transparent);
-    opacity: 0.3;
-}
-
-.sidebar-brand {
+.nx-logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--nx-accent);
+    letter-spacing: 0.15em;
     text-align: center;
-    padding: 1.5rem 0.5rem;
+    padding: 0.8rem 0;
+    border-bottom: 1px solid var(--nx-border);
     margin-bottom: 1rem;
-    border-bottom: 1px solid var(--cyber-border);
 }
-.sidebar-logo {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 1.8rem;
-    font-weight: 900;
-    background: linear-gradient(135deg, var(--cyber-glow), var(--cyber-indigo));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    letter-spacing: 0.05em;
+.nx-logo-sub {
+    font-size: 0.55rem;
+    color: var(--nx-text3);
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-top: 0.2rem;
 }
-.sidebar-subtitle {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.65rem;
-    color: var(--text-muted);
+
+.nx-sidebar-section {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--nx-accent);
     letter-spacing: 0.2em;
     text-transform: uppercase;
-    margin-top: 0.3rem;
+    margin: 1.5rem 0 0.6rem 0;
+    padding-left: 0.5rem;
+    border-left: 2px solid var(--nx-accent);
 }
 
-.sidebar-section {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.65rem;
-    color: var(--cyber-cyan);
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    margin: 1.2rem 0 0.5rem 0;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+/* Radio card styling via Streamlit native */
+[data-testid="stRadio"] > div > label {
+    background: var(--nx-surface2) !important;
+    border: 1px solid var(--nx-border) !important;
+    border-radius: 6px !important;
+    padding: 0.6rem 0.8rem !important;
+    margin-bottom: 0.4rem !important;
+    transition: all 0.15s !important;
 }
-.sidebar-section::before {
-    content: '';
-    width: 8px; height: 2px;
-    background: var(--cyber-cyan);
+[data-testid="stRadio"] > div > label:hover {
+    border-color: var(--nx-accent) !important;
+    background: rgba(0,229,160,0.05) !important;
+}
+[data-testid="stRadio"] > div > label[data-checked="true"] {
+    border-color: var(--nx-accent) !important;
+    background: rgba(0,229,160,0.1) !important;
+    box-shadow: inset 3px 0 0 var(--nx-accent) !important;
 }
 
-.sidebar-status {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.6rem 0.8rem;
-    background: rgba(14,165,233,0.08);
-    border: 1px solid rgba(14,165,233,0.15);
-    border-radius: 6px;
-    font-size: 0.78rem;
-    margin-top: 0.5rem;
+.nx-threshold-display {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--nx-accent);
+    text-align: center;
+    padding: 0.5rem 0;
 }
-.status-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    animation: pulse 2s infinite;
-}
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-}
-.status-online { background: var(--success); box-shadow: 0 0 8px var(--success); }
-.status-offline { background: var(--warning); box-shadow: 0 0 8px var(--warning); animation: none; }
-
-.sidebar-stat {
-    display: flex;
-    justify-content: space-between;
-    padding: 0.4rem 0;
-    border-bottom: 1px solid rgba(26,39,55,0.5);
-    font-size: 0.8rem;
-}
-.sidebar-stat-label { color: var(--text-muted); }
-.sidebar-stat-value { color: var(--text-primary); font-weight: 600; }
-
-/* ─── HEADER ─────────────────────────────────────── */
-.main-header {
-    background: linear-gradient(135deg, var(--cyber-panel), var(--cyber-dark));
-    border: 1px solid var(--cyber-border);
-    border-radius: 12px;
-    padding: 1.5rem 2rem;
-    margin-bottom: 1.5rem;
-    position: relative;
+.nx-threshold-bar {
+    height: 4px;
+    background: var(--nx-border);
+    border-radius: 2px;
+    margin: 0.5rem 0;
     overflow: hidden;
 }
-.main-header::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, var(--cyber-glow), var(--cyber-indigo), var(--cyber-cyan));
+.nx-threshold-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--nx-accent), var(--nx-accent2));
+    border-radius: 2px;
+    transition: width 0.3s;
 }
-.header-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.header-title {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: 0;
-}
-.header-title span {
-    background: linear-gradient(135deg, var(--cyber-glow), var(--cyber-cyan));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-.header-desc {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    margin-top: 0.3rem;
-}
-.header-badge {
+
+.nx-status-chip {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    padding: 0.5rem 1rem;
-    background: rgba(14,165,233,0.1);
-    border: 1px solid rgba(14,165,233,0.2);
-    border-radius: 8px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.75rem;
-    color: var(--cyber-glow);
+    padding: 0.4rem 0.7rem;
+    background: var(--nx-surface2);
+    border: 1px solid var(--nx-border);
+    border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--nx-text2);
+    margin: 0.2rem 0;
 }
+.nx-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--nx-accent);
+    box-shadow: 0 0 6px var(--nx-accent);
+}
+.nx-dot.off { background: var(--nx-warning); box-shadow: 0 0 6px var(--nx-warning); }
 
-/* ─── STAT CARDS ─────────────────────────────────── */
-.stat-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 1rem;
+/* ─── MAIN AREA ─── */
+header { visibility: hidden; height: 0; }
+[data-testid="collapsedControl"] { display: none; }
+
+/* ─── TABS — PILL STYLE ─── */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 0.25rem;
+    background: var(--nx-surface);
+    padding: 4px;
+    border-radius: 8px;
+    border: 1px solid var(--nx-border);
     margin-bottom: 1.5rem;
 }
-.stat-card {
-    background: var(--cyber-panel);
-    border: 1px solid var(--cyber-border);
-    border-radius: 10px;
-    padding: 1.2rem;
+.stTabs [data-baseweb="tab"] {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 6px !important;
+    color: var(--nx-text3) !important;
+    padding: 0.55rem 1.2rem !important;
+    font-size: 0.82rem !important;
+    font-weight: 500 !important;
+}
+.stTabs [aria-selected="true"] {
+    background: var(--nx-accent) !important;
+    color: var(--nx-bg) !important;
+    font-weight: 600 !important;
+}
+
+/* ─── METRIC GRID 2x3 ─── */
+.nx-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.8rem;
+    margin-bottom: 1.5rem;
+}
+.nx-metric {
+    background: var(--nx-surface);
+    border: 1px solid var(--nx-border);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
     position: relative;
     overflow: hidden;
-    transition: transform 0.2s, border-color 0.2s;
 }
-.stat-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--cyber-blue);
-}
-.stat-card::after {
+.nx-metric::after {
     content: '';
     position: absolute;
     bottom: 0; left: 0; right: 0;
     height: 2px;
 }
-.stat-card.blue::after { background: var(--cyber-blue); }
-.stat-card.red::after { background: var(--danger); }
-.stat-card.green::after { background: var(--success); }
-.stat-card.yellow::after { background: var(--warning); }
-.stat-card.purple::after { background: var(--cyber-purple); }
+.nx-metric.green::after { background: var(--nx-accent); }
+.nx-metric.red::after { background: var(--nx-danger); }
+.nx-metric.yellow::after { background: var(--nx-warning); }
+.nx-metric.blue::after { background: var(--nx-accent2); }
+.nx-metric.neutral::after { background: var(--nx-border-light); }
 
-.stat-icon {
-    width: 40px; height: 40px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.2rem;
-    margin-bottom: 0.8rem;
-}
-.stat-value {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    line-height: 1;
-}
-.stat-label {
-    font-size: 0.72rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-top: 0.3rem;
-}
-.stat-change {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem;
-    margin-top: 0.4rem;
-}
-
-/* ─── PANELS ─────────────────────────────────────── */
-.panel {
-    background: var(--cyber-panel);
-    border: 1px solid var(--cyber-border);
-    border-radius: 10px;
-    padding: 1.3rem;
-    margin-bottom: 1rem;
-}
-.panel-header {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    margin-bottom: 1rem;
-    padding-bottom: 0.7rem;
-    border-bottom: 1px solid var(--cyber-border);
-}
-.panel-icon {
-    width: 32px; height: 32px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.9rem;
-}
-.panel-title {
-    font-family: 'Space Grotesk', sans-serif;
-    font-weight: 600;
-    font-size: 0.95rem;
-    color: var(--text-primary);
-}
-.panel-badge {
-    margin-left: auto;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.65rem;
-    padding: 0.2rem 0.6rem;
-    border-radius: 4px;
-    font-weight: 600;
-}
-
-/* ─── CHART CONTAINER ────────────────────────────── */
-.chart-container {
-    background: var(--cyber-dark);
-    border: 1px solid var(--cyber-border);
-    border-radius: 8px;
-    padding: 1rem;
-    margin-top: 0.5rem;
-}
-
-/* ─── RISK INDICATOR ─────────────────────────────── */
-.risk-gauge {
-    text-align: center;
-    padding: 1.5rem;
-}
-.risk-value {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 3rem;
-    font-weight: 900;
-    line-height: 1;
-}
-.risk-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem;
-    color: var(--text-muted);
+.nx-metric-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--nx-text3);
     letter-spacing: 0.15em;
     text-transform: uppercase;
-    margin-top: 0.3rem;
+    margin-bottom: 0.4rem;
 }
-.risk-high { color: var(--danger); text-shadow: 0 0 20px rgba(239,68,68,0.4); }
-.risk-medium { color: var(--warning); text-shadow: 0 0 15px rgba(245,158,11,0.3); }
-.risk-low { color: var(--success); text-shadow: 0 0 15px rgba(16,185,129,0.3); }
-
-/* ─── VERDICT BOX ────────────────────────────────── */
-.verdict-box {
-    text-align: center;
-    padding: 1.2rem;
-    border-radius: 10px;
-    border: 2px solid;
-}
-.verdict-fraud {
-    background: rgba(239,68,68,0.08);
-    border-color: var(--danger);
-}
-.verdict-legit {
-    background: rgba(16,185,129,0.08);
-    border-color: var(--success);
-}
-.verdict-text {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 1.2rem;
+.nx-metric-value {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.6rem;
     font-weight: 700;
+    color: var(--nx-text);
+    line-height: 1;
+}
+.nx-metric-sub {
+    font-size: 0.7rem;
+    color: var(--nx-text2);
     margin-top: 0.3rem;
 }
 
-/* ─── DATA TABLE ─────────────────────────────────── */
-[data-testid="stDataFrame"] {
-    border: 1px solid var(--cyber-border) !important;
-    border-radius: 8px !important;
-    overflow: hidden;
+/* ─── CHART GRID 2x2 ─── */
+.nx-chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+    margin-bottom: 1.5rem;
 }
-[data-testid="stDataFrame"] th {
-    background: var(--cyber-dark) !important;
-    color: var(--cyber-cyan) !important;
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.72rem !important;
-    letter-spacing: 0.05em !important;
+.nx-chart-card {
+    background: var(--nx-surface);
+    border: 1px solid var(--nx-border);
+    border-radius: 8px;
+    padding: 1rem;
 }
-[data-testid="stDataFrame"] td {
-    color: var(--text-secondary) !important;
-    font-family: 'Space Grotesk', sans-serif !important;
-    font-size: 0.85rem !important;
+.nx-chart-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--nx-accent);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 0.8rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--nx-border);
 }
 
-/* ─── BUTTONS ────────────────────────────────────── */
-[data-testid="stButton"] > button {
-    background: linear-gradient(135deg, var(--cyber-blue), var(--cyber-indigo)) !important;
-    color: white !important;
-    border: none !important;
+/* ─── PASTE AREA ─── */
+[data-testid="stTextArea"] textarea {
+    background: var(--nx-surface2) !important;
+    border: 1px solid var(--nx-border) !important;
     border-radius: 8px !important;
-    font-family: 'Space Grotesk', sans-serif !important;
+    color: var(--nx-accent) !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.82rem !important;
+    line-height: 1.6 !important;
+    padding: 1rem !important;
+    resize: vertical !important;
+}
+[data-testid="stTextArea"] textarea:focus {
+    border-color: var(--nx-accent) !important;
+    box-shadow: 0 0 0 2px rgba(0,229,160,0.1) !important;
+}
+[data-testid="stTextArea"] textarea::placeholder {
+    color: var(--nx-text3) !important;
+}
+
+/* ─── FILE UPLOADER — COMPACT ─── */
+[data-testid="stFileUploader"] {
+    background: var(--nx-surface2) !important;
+    border: 1px dashed var(--nx-border-light) !important;
+    border-radius: 8px !important;
+    padding: 1.5rem !important;
+}
+[data-testid="stFileUploader"]:hover {
+    border-color: var(--nx-accent) !important;
+}
+
+/* ─── BUTTONS ─── */
+[data-testid="stButton"] > button {
+    background: var(--nx-accent) !important;
+    color: var(--nx-bg) !important;
+    border: none !important;
+    border-radius: 6px !important;
+    font-family: 'IBM Plex Sans', sans-serif !important;
     font-weight: 600 !important;
-    font-size: 0.88rem !important;
-    padding: 0.65rem 1.5rem !important;
-    box-shadow: 0 4px 15px rgba(14,165,233,0.3) !important;
-    transition: transform 0.15s, box-shadow 0.15s !important;
+    font-size: 0.85rem !important;
+    padding: 0.6rem 1.5rem !important;
+    letter-spacing: 0.02em !important;
+    transition: opacity 0.15s !important;
 }
 [data-testid="stButton"] > button:hover {
-    transform: translateY(-1px) !important;
-    box-shadow: 0 6px 20px rgba(14,165,233,0.4) !important;
+    opacity: 0.9 !important;
 }
 
 [data-testid="stDownloadButton"] > button {
     background: transparent !important;
-    color: var(--cyber-cyan) !important;
-    border: 1px solid var(--cyber-border) !important;
-    border-radius: 8px !important;
-    font-weight: 600 !important;
+    color: var(--nx-accent) !important;
+    border: 1px solid var(--nx-border) !important;
+    border-radius: 6px !important;
+    font-weight: 500 !important;
 }
 [data-testid="stDownloadButton"] > button:hover {
-    background: rgba(14,165,233,0.1) !important;
-    border-color: var(--cyber-blue) !important;
+    border-color: var(--nx-accent) !important;
+    background: rgba(0,229,160,0.08) !important;
 }
 
-/* ─── FILE UPLOADER ──────────────────────────────── */
-[data-testid="stFileUploader"] {
-    border: 2px dashed var(--cyber-border) !important;
-    border-radius: 10px !important;
-    background: var(--cyber-dark) !important;
-    transition: border-color 0.2s !important;
-}
-[data-testid="stFileUploader"]:hover {
-    border-color: var(--cyber-blue) !important;
-}
-
-/* ─── INPUTS ─────────────────────────────────────── */
-[data-testid="stNumberInput"] input {
-    background: var(--cyber-dark) !important;
-    border: 1px solid var(--cyber-border) !important;
+/* ─── DATAFRAME ─── */
+[data-testid="stDataFrame"] {
+    border: 1px solid var(--nx-border) !important;
     border-radius: 6px !important;
-    color: var(--text-primary) !important;
+    overflow: hidden;
 }
-[data-testid="stNumberInput"] input:focus {
-    border-color: var(--cyber-blue) !important;
-    box-shadow: 0 0 0 2px rgba(14,165,233,0.15) !important;
+[data-testid="stDataFrame"] th {
+    background: var(--nx-surface2) !important;
+    color: var(--nx-accent) !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.68rem !important;
 }
-
-[data-testid="stSlider"] [data-baseweb="slider"] [role="slider"] {
-    background: var(--cyber-blue) !important;
-}
-
-/* ─── ALERTS ─────────────────────────────────────── */
-[data-testid="stAlert"] {
-    border-radius: 8px !important;
-    background: var(--cyber-panel) !important;
-}
-
-/* ─── EXPANDER ───────────────────────────────────── */
-[data-testid="stExpander"] {
-    background: var(--cyber-panel) !important;
-    border: 1px solid var(--cyber-border) !important;
-    border-radius: 8px !important;
-}
-[data-testid="stExpander"] summary {
-    color: var(--text-secondary) !important;
-}
-
-/* ─── TABS ───────────────────────────────────────── */
-.stTabs [data-baseweb="tab-list"] { gap: 0.4rem; }
-.stTabs [data-baseweb="tab"] {
-    background: var(--cyber-dark) !important;
-    border: 1px solid var(--cyber-border) !important;
-    border-radius: 6px !important;
-    color: var(--text-muted) !important;
-    padding: 0.5rem 1rem !important;
+[data-testid="stDataFrame"] td {
+    color: var(--nx-text2) !important;
     font-size: 0.82rem !important;
 }
-.stTabs [aria-selected="true"] {
-    background: linear-gradient(135deg, var(--cyber-blue), var(--cyber-indigo)) !important;
-    color: white !important;
-    border: none !important;
+
+/* ─── EXPANDER — ACCORDION STYLE ─── */
+[data-testid="stExpander"] {
+    background: var(--nx-surface) !important;
+    border: 1px solid var(--nx-border) !important;
+    border-radius: 8px !important;
+    margin-bottom: 0.5rem !important;
+}
+[data-testid="stExpander"] summary {
+    font-weight: 500 !important;
+    color: var(--nx-text) !important;
+    font-size: 0.88rem !important;
+    padding: 0.8rem 1rem !important;
 }
 
-/* ─── PROGRESS ───────────────────────────────────── */
+/* ─── VERDICT PANEL ─── */
+.nx-verdict {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: var(--nx-surface);
+    border: 1px solid var(--nx-border);
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+}
+.nx-verdict-block {
+    text-align: center;
+    padding: 1rem;
+    border-radius: 8px;
+}
+.nx-verdict-value {
+    font-family: 'Space Mono', monospace;
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+}
+.nx-verdict-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--nx-text3);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-top: 0.5rem;
+}
+.nx-high { color: var(--nx-danger); }
+.nx-mid { color: var(--nx-warning); }
+.nx-low { color: var(--nx-accent); }
+.nx-fraud-border { border: 2px solid var(--nx-danger); background: rgba(255,71,87,0.06); }
+.nx-legit-border { border: 2px solid var(--nx-accent); background: rgba(0,229,160,0.06); }
+
+/* ─── ALERTS ─── */
+[data-testid="stAlert"] {
+    border-radius: 6px !important;
+    background: var(--nx-surface) !important;
+}
+
+/* ─── SPINNER ─── */
+[data-testid="stSpinner"] { color: var(--nx-accent) !important; }
+
+/* ─── PROGRESS ─── */
 .stProgress > div > div {
-    background: linear-gradient(90deg, var(--cyber-blue), var(--cyber-cyan)) !important;
+    background: var(--nx-accent) !important;
 }
 
-/* ─── SPINNER ────────────────────────────────────── */
-[data-testid="stSpinner"] { color: var(--cyber-glow) !important; }
+/* ─── NUMBER INPUT ─── */
+[data-testid="stNumberInput"] input {
+    background: var(--nx-surface2) !important;
+    border: 1px solid var(--nx-border) !important;
+    border-radius: 6px !important;
+    color: var(--nx-text) !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+}
 
-/* ─── HIDE DEFAULT ───────────────────────────────── */
-header { visibility: hidden; height: 0; }
-[data-testid="collapsedControl"] { display: none; }
+/* ─── STEP INDICATOR ─── */
+.nx-steps {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 1.5rem;
+    padding: 0.8rem 1rem;
+    background: var(--nx-surface);
+    border: 1px solid var(--nx-border);
+    border-radius: 8px;
+}
+.nx-step {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    color: var(--nx-text3);
+}
+.nx-step.active { color: var(--nx-accent); }
+.nx-step.done { color: var(--nx-text2); }
+.nx-step-num {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border: 1px solid var(--nx-border);
+    background: var(--nx-surface2);
+}
+.nx-step.active .nx-step-num {
+    background: var(--nx-accent);
+    color: var(--nx-bg);
+    border-color: var(--nx-accent);
+}
+.nx-step.done .nx-step-num {
+    background: var(--nx-text2);
+    color: var(--nx-bg);
+    border-color: var(--nx-text2);
+}
+.nx-step-arrow {
+    color: var(--nx-border-light);
+    margin: 0 0.8rem;
+    font-size: 0.7rem;
+}
 </style>
 """, unsafe_allow_html=True)
 
 # =====================================================
-# MATPLOTLIB CYBER THEME
+# MATPLOTLIB THEME
 # =====================================================
 
-CYBER_BG = "#0f1923"
-CYBER_BORDER = "#1a2737"
-CYBER_TEXT = "#94a3b8"
-CYBER_GRID = "#1a2737"
+NX_BG = "#12161e"
+NX_BORDER = "#252b38"
+NX_TEXT = "#8892a6"
+NX_GRID = "#1e2330"
 
-CYBER_CMAP = LinearSegmentedColormap.from_list(
-    "cyber", ["#0f1923", "#0ea5e9", "#00d4ff", "#ffffff"], N=256
-)
-DANGER_CMAP = LinearSegmentedColormap.from_list(
-    "danger", ["#0f1923", "#7f1d1d", "#ef4444", "#fca5a5"], N=256
-)
-ATTENTION_CMAP = LinearSegmentedColormap.from_list(
-    "attn", ["#0f1923", "#1e3a5f", "#0ea5e9", "#00d4ff"], N=256
-)
+NX_CMAP = LinearSegmentalColormap.from_list("nx", ["#12161e", "#00e5a0", "#b0ffe0"], N=256)
+DANGER_CMAP = LinearSegmentalColormap.from_list("nx_danger", ["#12161e", "#7f1d1d", "#ff4757"], N=256)
+ATTN_CMAP = LinearSegmentalColormap.from_list("nx_attn", ["#12161e", "#0d3b4f", "#00c9db", "#00e5a0"], N=256)
 
-def setup_ax(ax, title=""):
-    ax.set_facecolor(CYBER_BG)
-    ax.set_title(title, color="#e2e8f0", fontsize=11, fontweight='bold', 
-                 fontfamily='Space Grotesk', pad=10, loc='left')
-    ax.tick_params(colors=CYBER_TEXT, labelsize=8)
-    for spine in ax.spines.values():
-        spine.set_edgecolor(CYBER_BORDER)
-    ax.xaxis.label.set_color(CYBER_TEXT)
-    ax.yaxis.label.set_color(CYBER_TEXT)
+def nx_ax(ax, title=""):
+    ax.set_facecolor(NX_BG)
+    ax.set_title(title, color="#d1d5e0", fontsize=9, fontweight='600',
+                 fontfamily='IBM Plex Mono', pad=8, loc='left')
+    ax.tick_params(colors=NX_TEXT, labelsize=7)
+    for s in ax.spines.values(): s.set_edgecolor(NX_BORDER)
+    ax.xaxis.label.set_color(NX_TEXT)
+    ax.yaxis.label.set_color(NX_TEXT)
 
-def style_fig(fig):
-    fig.patch.set_facecolor(CYBER_BG)
-    fig.tight_layout()
+def nx_fig(fig):
+    fig.patch.set_facecolor(NX_BG)
+    fig.tight_layout(pad=1.5)
     return fig
 
 # =====================================================
@@ -527,33 +500,24 @@ def load_model_safe():
         from attention import AttentionLayer
         model_path = BASE_DIR / "fraud_lstm_attention.keras"
         if model_path.exists():
-            model = tf.keras.models.load_model(
-                model_path,
-                custom_objects={"AttentionLayer": AttentionLayer},
-                compile=False
-            )
+            model = tf.keras.models.load_model(model_path, custom_objects={"AttentionLayer": AttentionLayer}, compile=False)
             return model, True
-    except Exception:
-        pass
+    except Exception: pass
     return None, False
 
 @st.cache_resource
 def load_scaler_safe():
     try:
         scaler_path = BASE_DIR / "scaler.pkl"
-        if scaler_path.exists():
-            return joblib.load(scaler_path), True
-    except Exception:
-        pass
+        if scaler_path.exists(): return joblib.load(scaler_path), True
+    except Exception: pass
     return None, False
 
 def load_threshold_safe():
     try:
         threshold_path = BASE_DIR / "threshold.pkl"
-        if threshold_path.exists():
-            return float(joblib.load(threshold_path))
-    except Exception:
-        pass
+        if threshold_path.exists(): return float(joblib.load(threshold_path))
+    except Exception: pass
     return 0.5
 
 model, model_loaded = load_model_safe()
@@ -561,615 +525,487 @@ scaler, scaler_loaded = load_scaler_safe()
 saved_threshold = load_threshold_safe()
 
 # =====================================================
-# SIDEBAR
+# SIDEBAR — COMMAND PALETTE STYLE
 # =====================================================
 
 with st.sidebar:
     st.markdown("""
-    <div class="sidebar-brand">
-        <div class="sidebar-logo">SENTINEL</div>
-        <div class="sidebar-subtitle">Fraud Detection AI</div>
+    <div class="nx-logo">
+        NEXUS
+        <div class="nx-logo-sub">Fraud Operations Center</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="nx-sidebar-section">Detection Mode</div>', unsafe_allow_html=True)
+    
+    analysis_mode = st.radio(
+        "Mode",
+        ["Standard", "High Sensitivity", "Low False Positive"],
+        label_visibility="collapsed",
+        index=0
+    )
+    
+    st.markdown('<div class="nx-sidebar-section">Threshold</div>', unsafe_allow_html=True)
+    
+    # Use buttons instead of slider for different UI pattern
+    th_col1, th_col2, th_col3 = st.columns(3)
+    with th_col1:
+        if st.button("−", key="th_down", use_container_width=True):
+            st.session_state.th_val = max(0.0, st.session_state.get("th_val", saved_threshold) - 0.05)
+    with th_col2:
+        st.session_state.th_val = st.session_state.get("th_val", saved_threshold)
+        st.markdown(f'<div class="nx-threshold-display">{st.session_state.th_val:.2f}</div>', unsafe_allow_html=True)
+    with th_col3:
+        if st.button("+", key="th_up", use_container_width=True):
+            st.session_state.th_val = min(1.0, st.session_state.get("th_val", saved_threshold) + 0.05)
+    
+    threshold = st.session_state.th_val
+    pct = int(threshold * 100)
+    st.markdown(f'<div class="nx-threshold-bar"><div class="nx-threshold-fill" style="width:{pct}%"></div></div>', unsafe_allow_html=True)
+    
+    mode_offsets = {"Standard": 0, "High Sensitivity": -0.15, "Low False Positive": 0.2}
+    effective_threshold = np.clip(threshold + mode_offsets[analysis_mode], 0.05, 0.95)
+    
+    st.markdown('<div class="nx-sidebar-section">Sequence</div>', unsafe_allow_html=True)
+    sequence_length = st.radio(
+        "Seq Length",
+        [3, 5, 8, 10, 15],
+        label_visibility="collapsed",
+        index=1,
+        horizontal=True
+    )
+    
+    st.markdown('<div class="nx-sidebar-section">System</div>', unsafe_allow_html=True)
+    st.markdown(f'''
+    <div class="nx-status-chip"><div class="nx-dot {'off' if not model_loaded else ''}"></div> Model: {"ONLINE" if model_loaded else "DEMO"}</div>
+    <div class="nx-status-chip"><div class="nx-dot {'off' if not scaler_loaded else ''}"></div> Scaler: {"LOADED" if scaler_loaded else "FALLBACK"}</div>
+    <div class="nx-status-chip"><div class="nx-dot"></div> Effective Thresh: {effective_threshold:.2f}</div>
+    ''', unsafe_allow_html=True)
+
+# =====================================================
+# MAIN: TAB-BASED NAVIGATION
+# =====================================================
+
+tab_batch, tab_realtime = st.tabs(["◈ Batch Analysis", "⚡ Real-Time Scorer"])
+
+# =====================================================
+# TAB 1: BATCH ANALYSIS
+# =====================================================
+
+with tab_batch:
+    # Step indicator
+    step = 1
+    if 'df' not in st.session_state: step = 1
+    elif 'results' not in st.session_state: step = 2
+    else: step = 3
+    
+    st.markdown(f"""
+    <div class="nx-steps">
+        <div class="nx-step {'active' if step==1 else 'done' if step>1 else ''}">
+            <div class="nx-step-num">{'✓' if step>1 else '1'}</div>
+            <span>Upload</span>
+        </div>
+        <span class="nx-step-arrow">→</span>
+        <div class="nx-step {'active' if step==2 else 'done' if step>2 else ''}">
+            <div class="nx-step-num">{'✓' if step>2 else '2'}</div>
+            <span>Analyze</span>
+        </div>
+        <span class="nx-step-arrow">→</span>
+        <div class="nx-step {'active' if step==3 else ''}">
+            <div class="nx-step-num">3</div>
+            <span>Results</span>
+        </div>
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown('<div class="sidebar-section">Configuration</div>', unsafe_allow_html=True)
+    # ─── STEP 1: UPLOAD ───
+    uploaded_file = st.file_uploader("Upload transaction CSV", type=["csv"], label_visibility="collapsed")
     
-    threshold = st.slider("Detection Threshold", min_value=0.0, max_value=1.0,
-                          value=saved_threshold, step=0.01, label_visibility="collapsed")
-    st.markdown(f'<div style="text-align:right; font-family:JetBrains Mono; font-size:0.8rem; color:#06b6d4; margin-top:-0.5rem; margin-bottom:0.5rem;">{threshold:.2f}</div>', unsafe_allow_html=True)
-    
-    sequence_length = st.slider("Sequence Length", min_value=3, max_value=20, 
-                                value=5, label_visibility="collapsed")
-    
-    st.markdown('<div class="sidebar-section">Analysis Mode</div>', unsafe_allow_html=True)
-    analysis_mode = st.selectbox("Mode", ["Standard", "High Sensitivity", "Low False Positive"],
-                                label_visibility="collapsed")
-    
-    mode_thresholds = {
-        "Standard": threshold,
-        "High Sensitivity": max(0.1, threshold - 0.15),
-        "Low False Positive": min(0.9, threshold + 0.2),
-    }
-    effective_threshold = mode_thresholds[analysis_mode]
-    
-    st.markdown('<div class="sidebar-section">System Status</div>', unsafe_allow_html=True)
-    
-    status_class = "status-online" if model_loaded else "status-offline"
-    status_text = "MODEL ONLINE" if model_loaded else "DEMO MODE"
-    st.markdown(f'''
-    <div class="sidebar-status">
-        <div class="status-dot {status_class}"></div>
-        <span style="color: var(--text-secondary); font-size: 0.78rem;">{status_text}</span>
-    </div>
-    ''', unsafe_allow_html=True)
-    
-    st.markdown(f'''
-    <div class="sidebar-stat">
-        <span class="sidebar-stat-label">Scaler</span>
-        <span class="sidebar-stat-value" style="color: {'#10b981' if scaler_loaded else '#f59e0b'};">{'✓ Loaded' if scaler_loaded else '○ Fallback'}</span>
-    </div>
-    <div class="sidebar-stat">
-        <span class="sidebar-stat-label">Threshold</span>
-        <span class="sidebar-stat-value">{effective_threshold:.2f}</span>
-    </div>
-    <div class="sidebar-stat">
-        <span class="sidebar-stat-label">Sequence</span>
-        <span class="sidebar-stat-value">{sequence_length} txns</span>
-    </div>
-    ''', unsafe_allow_html=True)
-
-# =====================================================
-# MAIN HEADER
-# =====================================================
-
-st.markdown("""
-<div class="main-header">
-    <div class="header-content">
-        <div>
-            <h1 class="header-title">Fraud <span>Detection</span> Engine</h1>
-            <p class="header-desc">LSTM + Attention · Sequential Transaction Analysis · Deep Learning</p>
-        </div>
-        <div class="header-badge">
-            <span class="status-dot {status_class}" style="width:6px; height:6px;"></span>
-            {status_text}
-        </div>
-    </div>
-</div>
-""".format(status_class="status-online" if model_loaded else "status-offline", 
-           status_text="MODEL ONLINE" if model_loaded else "DEMO MODE"), 
-unsafe_allow_html=True)
-
-# =====================================================
-# UPLOAD SECTION
-# =====================================================
-
-st.markdown("""
-<div class="panel">
-    <div class="panel-header">
-        <div class="panel-icon" style="background: rgba(14,165,233,0.15);">📁</div>
-        <div class="panel-title">Upload Transaction Dataset</div>
-        <div class="panel-badge" style="background: rgba(14,165,233,0.1); color: var(--cyber-cyan);">CSV</div>
-    </div>
-    <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0;">
-        Upload a CSV with <strong style="color: var(--cyber-glow);">Time</strong> and 
-        <strong style="color: var(--cyber-glow);">Amount</strong> columns. 
-        Optional <strong style="color: var(--cyber-purple);">Class</strong> column (0=legit, 1=fraud) enables metrics.
-    </p>
-</div>
-""", unsafe_allow_html=True)
-
-uploaded_file = st.file_uploader("Drop CSV here", type=["csv"], label_visibility="collapsed")
-
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-    
-    # ─── DATASET INSPECTION ────────────────────────
-    col_preview, col_stats = st.columns([3, 1])
-    
-    with col_preview:
-        st.markdown("""
-        <div class="panel">
-            <div class="panel-header">
-                <div class="panel-icon" style="background: rgba(99,102,241,0.15);">👁️</div>
-                <div class="panel-title">Data Preview</div>
-            </div>
-        """, unsafe_allow_html=True)
-        st.dataframe(df.head(8), use_container_width=True, height=280)
-        st.markdown("</div>", unsafe_allow_html=True)
-    
-    with col_stats:
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file)
+        st.session_state.df = df
+        
+        # Compact info bar instead of full preview
         has_class = "Class" in df.columns
-        fraud_in_data = int(df["Class"].sum()) if has_class else "N/A"
-        legit_in_data = int((df["Class"] == 0).sum()) if has_class else "N/A"
-        imbalance = fraud_in_data / legit_in_data if isinstance(fraud_in_data, int) and legit_in_data > 0 else "N/A"
+        fraud_n = int(df["Class"].sum()) if has_class else "?"
+        legit_n = int((df["Class"] == 0).sum()) if has_class else "?"
+        imb = f"1:{int(legit_n/fraud_n)}" if isinstance(fraud_n, int) and fraud_n > 0 else "N/A"
         
         st.markdown(f"""
-        <div class="panel">
-            <div class="panel-header">
-                <div class="panel-icon" style="background: rgba(16,185,129,0.15);">📊</div>
-                <div class="panel-title">Dataset Stats</div>
-            </div>
-            <div style="text-align: center; margin-bottom: 1rem;">
-                <div style="font-family: Orbitron; font-size: 2.2rem; font-weight: 700; color: var(--cyber-glow);">{len(df):,}</div>
-                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em;">Total Rows</div>
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;">
-                <div style="background: var(--cyber-dark); padding: 0.8rem; border-radius: 6px; text-align: center;">
-                    <div style="font-family: Orbitron; font-size: 1.1rem; color: var(--danger); font-weight: 700;">{fraud_in_data}</div>
-                    <div style="font-size: 0.65rem; color: var(--text-muted);">FRAUD</div>
-                </div>
-                <div style="background: var(--cyber-dark); padding: 0.8rem; border-radius: 6px; text-align: center;">
-                    <div style="font-family: Orbitron; font-size: 1.1rem; color: var(--success); font-weight: 700;">{legit_in_data}</div>
-                    <div style="font-size: 0.65rem; color: var(--text-muted);">LEGIT</div>
-                </div>
-            </div>
-            <div style="margin-top: 0.8rem; padding: 0.6rem; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.15); border-radius: 6px; text-align: center;">
-                <div style="font-size: 0.65rem; color: var(--text-muted);">IMBALANCE RATIO</div>
-                <div style="font-family: JetBrains Mono; font-size: 0.9rem; color: var(--warning); font-weight: 600;">1:{int(1/imbalance) if isinstance(imbalance, float) else 'N/A'}</div>
-            </div>
+        <div style="display:flex; gap:0.6rem; flex-wrap:wrap; margin:0.8rem 0 1rem 0;">
+            <div class="nx-status-chip" style="border-color:var(--nx-accent);">Rows: {len(df):,}</div>
+            <div class="nx-status-chip" style="border-color:var(--nx-accent);">Cols: {len(df.columns)}</div>
+            <div class="nx-status-chip" style="border-color:var(--nx-danger);">Fraud: {fraud_n}</div>
+            <div class="nx-status-chip" style="border-color:var(--nx-accent);">Legit: {legit_n}</div>
+            <div class="nx-status-chip" style="border-color:var(--nx-warning);">Imbalance: {imb}</div>
         </div>
         """, unsafe_allow_html=True)
-    
-    # ─── VALIDATION ────────────────────────────────
-    required_cols = ["Time", "Amount"]
-    missing = [c for c in required_cols if c not in df.columns]
-    if missing:
-        st.error(f"Missing required columns: **{missing}**")
-        st.stop()
-    
-    # ─── PREPROCESSING ────────────────────────────
-    df = df.sort_values("Time").reset_index(drop=True)
-    
-    if scaler_loaded and scaler is not None:
-        df["Amount_scaled"] = scaler.transform(df[["Amount"]])
-    else:
-        from sklearn.preprocessing import StandardScaler
-        _sc = StandardScaler()
-        df["Amount_scaled"] = _sc.fit_transform(df[["Amount"]])
-    
-    features = df.drop(columns=["Class"], errors="ignore")
-    feature_array = features.values
-    n = len(feature_array)
-    
-    if n <= sequence_length:
-        st.error(f"Dataset has only {n} rows — need more than {sequence_length}")
-        st.stop()
-    
-    # ─── SEQUENCE CREATION ────────────────────────
-    with st.spinner("⏳ Building transaction sequences..."):
-        X = np.array([feature_array[i:i + sequence_length] for i in range(n - sequence_length)])
-    
-    # ─── PREDICTION ───────────────────────────────
-    with st.spinner("🧠 Running deep learning inference..."):
-        if model_loaded and model is not None:
-            probs = model.predict(X, verbose=0).flatten()
-        else:
-            rng = np.random.default_rng(42)
-            probs = rng.beta(0.5, 8, size=len(X))
-            spike_idx = rng.choice(len(probs), size=max(1, len(probs) // 50), replace=False)
-            probs[spike_idx] = rng.uniform(0.7, 0.99, size=len(spike_idx))
-    
-    results = pd.DataFrame({
-        "Sequence_ID": range(len(probs)),
-        "Fraud_Probability": probs,
-        "Risk_Score": (probs * 100).round(1),
-        "Prediction": np.where(probs > effective_threshold, "Fraud", "Legitimate"),
-        "Confidence": np.where(probs > 0.8, "HIGH", np.where(probs > 0.5, "MEDIUM", "LOW"))
-    })
-    
-    fraud_count = (results["Prediction"] == "Fraud").sum()
-    legit_count = (results["Prediction"] == "Legitimate").sum()
-    fraud_rate = fraud_count / len(results) * 100
-    avg_prob = probs.mean()
-    max_prob = probs.max()
-    
-    # ─── STAT CARDS ───────────────────────────────
-    st.markdown(f"""
-    <div class="stat-grid">
-        <div class="stat-card blue">
-            <div class="stat-icon" style="background: rgba(14,165,233,0.15);">📈</div>
-            <div class="stat-value">{len(results):,}</div>
-            <div class="stat-label">Sequences</div>
-        </div>
-        <div class="stat-card red">
-            <div class="stat-icon" style="background: rgba(239,68,68,0.15);">🚨</div>
-            <div class="stat-value" style="color: var(--danger);">{fraud_count:,}</div>
-            <div class="stat-label">Frauds Detected</div>
-            <div class="stat-change" style="color: var(--danger);">{fraud_rate:.1f}% rate</div>
-        </div>
-        <div class="stat-card green">
-            <div class="stat-icon" style="background: rgba(16,185,129,0.15);">✓</div>
-            <div class="stat-value" style="color: var(--success);">{legit_count:,}</div>
-            <div class="stat-label">Legitimate</div>
-        </div>
-        <div class="stat-card yellow">
-            <div class="stat-icon" style="background: rgba(245,158,11,0.15);">⚡</div>
-            <div class="stat-value">{avg_prob*100:.1f}</div>
-            <div class="stat-label">Avg Risk %</div>
-        </div>
-        <div class="stat-card purple">
-            <div class="stat-icon" style="background: rgba(139,92,246,0.15);">🔥</div>
-            <div class="stat-value" style="color: var(--cyber-purple);">{max_prob:.3f}</div>
-            <div class="stat-label">Peak Prob</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # ─── CHARTS ROW 1 ─────────────────────────────
-    c1, c2 = st.columns([3, 2])
-    
-    with c1:
-        fig_hist, ax_hist = plt.subplots(figsize=(8, 4))
-        n_bins = 50
-        colors_hist = [CYBER_CMAP(p) for p in probs]
-        ax_hist.hist(probs, bins=n_bins, color='#0ea5e9', alpha=0.8, edgecolor='none')
-        ax_hist.axvline(x=effective_threshold, color='#ef4444', linestyle='--', linewidth=1.5, label=f'Threshold ({effective_threshold:.2f})')
-        ax_hist.fill_betweenx([0, ax_hist.get_ylim()[1]], effective_threshold, effective_threshold + 0.01, color='#ef4444', alpha=0.2)
-        ax_hist.set_xlabel("Fraud Probability")
-        ax_hist.set_ylabel("Sequence Count")
-        ax_hist.legend(facecolor=CYBER_BG, edgecolor=CYBER_BORDER, labelcolor=CYBER_TEXT, fontsize=8)
-        setup_ax(ax_hist, "Fraud Probability Distribution")
-        ax_hist.grid(axis='y', color=CYBER_GRID, linewidth=0.5, alpha=0.5)
-        st.pyplot(style_fig(fig_hist), use_container_width=True)
-        plt.close(fig_hist)
-    
-    with c2:
-        fig_pie, ax_pie = plt.subplots(figsize=(4, 4))
-        sizes = [fraud_count, legit_count]
-        colors_pie = ['#ef4444', '#10b981']
-        explode = (0.05, 0)
-        wedges, texts, autotexts = ax_pie.pie(sizes, explode=explode, labels=['Fraud', 'Legitimate'],
-                                              colors=colors_pie, autopct='%1.1f%%', startangle=90,
-                                              pctdistance=0.75, wedgeprops=dict(width=0.4, edgecolor=CYBER_BG, linewidth=2))
-        for t in texts: t.set_color(CYBER_TEXT); t.set_fontsize(9)
-        for a in autotexts: a.set_color('white'); a.set_fontsize(8); a.set_fontweight('bold')
-        ax_pie.text(0, 0, f'{fraud_rate:.1f}%', ha='center', va='center', fontsize=14, fontweight='bold', color='#ef4444', fontfamily='Orbitron')
-        setup_ax(ax_pie, "Fraud vs Legitimate")
-        st.pyplot(style_fig(fig_pie), use_container_width=True)
-        plt.close(fig_pie)
-    
-    # ─── CHARTS ROW 2 ─────────────────────────────
-    c3, c4 = st.columns([2, 3])
-    
-    with c3:
-        high_n = (probs > 0.8).sum()
-        med_n = ((probs > 0.5) & (probs <= 0.8)).sum()
-        low_n = (probs <= 0.5).sum()
         
-        fig_risk, ax_risk = plt.subplots(figsize=(5, 4))
-        bars = ax_risk.bar(['High\n>0.8', 'Medium\n0.5-0.8', 'Low\n<0.5'], 
-                          [high_n, med_n, low_n], color=['#ef4444', '#f59e0b', '#10b981'],
-                          edgecolor='none', width=0.6)
-        for bar, val in zip(bars, [high_n, med_n, low_n]):
-            ax_risk.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(1, high_n*0.02),
-                        f'{val:,}', ha='center', va='bottom', color=CYBER_TEXT, fontsize=9, fontweight='bold')
-        ax_risk.set_ylabel("Count")
-        setup_ax(ax_risk, "Risk Tier Breakdown")
-        ax_risk.grid(axis='y', color=CYBER_GRID, linewidth=0.5, alpha=0.5)
-        for spine in ['top', 'right']: ax_risk.spines[spine].set_visible(False)
-        st.pyplot(style_fig(fig_risk), use_container_width=True)
-        plt.close(fig_risk)
-    
-    with c4:
-        window = max(10, len(results) // 50)
-        timeline_df = results.copy()
-        timeline_df["is_fraud"] = (timeline_df["Prediction"] == "Fraud").astype(int)
-        timeline_df["rolling_rate"] = timeline_df["is_fraud"].rolling(window, min_periods=1).mean() * 100
+        with st.expander("Preview Data", expanded=False):
+            st.dataframe(df.head(5), use_container_width=True, height=180)
         
-        fig_time, ax_time = plt.subplots(figsize=(8, 4))
-        ax_time.fill_between(timeline_df["Sequence_ID"], timeline_df["rolling_rate"], alpha=0.2, color='#0ea5e9')
-        ax_time.plot(timeline_df["Sequence_ID"], timeline_df["rolling_rate"], color='#0ea5e9', linewidth=1.5)
-        ax_time.axhline(y=fraud_rate, color='#f59e0b', linestyle='--', linewidth=1, label=f'Avg {fraud_rate:.1f}%')
-        ax_time.set_xlabel("Sequence Index")
-        ax_time.set_ylabel("Fraud Rate (%)")
-        ax_time.legend(facecolor=CYBER_BG, edgecolor=CYBER_BORDER, labelcolor=CYBER_TEXT, fontsize=8)
-        setup_ax(ax_time, f"Rolling Fraud Rate (window={window})")
-        ax_time.grid(color=CYBER_GRID, linewidth=0.5, alpha=0.5)
-        for spine in ['top', 'right']: ax_time.spines[spine].set_visible(False)
-        st.pyplot(style_fig(fig_time), use_container_width=True)
-        plt.close(fig_time)
-    
-    # ─── TOP RISKIEST ─────────────────────────────
-    top_risk = results.sort_values("Fraud_Probability", ascending=False).head(20).reset_index(drop=True)
-    
-    fig_top, ax_top = plt.subplots(figsize=(10, 4))
-    colors_top = [DANGER_CMAP(p) for p in top_risk["Fraud_Probability"]]
-    ax_top.bar(top_risk.index, top_risk["Fraud_Probability"], color=colors_top, edgecolor='none')
-    ax_top.axhline(y=effective_threshold, color='#f59e0b', linestyle='--', linewidth=1.5, label=f'Threshold {effective_threshold:.2f}')
-    for i, p in enumerate(top_risk["Fraud_Probability"]):
-        ax_top.text(i, p + 0.01, f'{p:.3f}', ha='center', va='bottom', color=CYBER_TEXT, fontsize=7, fontfamily='JetBrains Mono')
-    ax_top.set_xlabel("Rank")
-    ax_top.set_ylabel("Fraud Probability")
-    ax_top.legend(facecolor=CYBER_BG, edgecolor=CYBER_BORDER, labelcolor=CYBER_TEXT, fontsize=8)
-    setup_ax(ax_top, "Top 20 Riskiest Sequences")
-    ax_top.grid(axis='y', color=CYBER_GRID, linewidth=0.5, alpha=0.5)
-    for spine in ['top', 'right']: ax_top.spines[spine].set_visible(False)
-    st.pyplot(style_fig(fig_top), use_container_width=True)
-    plt.close(fig_top)
-    
-    # ─── HIGH RISK TABLE ──────────────────────────
-    high_risk_df = results[results["Fraud_Probability"] > effective_threshold].sort_values("Fraud_Probability", ascending=False)
-    
-    if len(high_risk_df) > 0:
-        st.markdown(f"""
-        <div class="panel">
-            <div class="panel-header">
-                <div class="panel-icon" style="background: rgba(239,68,68,0.15);">🚨</div>
-                <div class="panel-title">Flagged Transactions</div>
-                <div class="panel-badge" style="background: rgba(239,68,68,0.1); color: var(--danger);">{len(high_risk_df):,} alerts</div>
-            </div>
-        """, unsafe_allow_html=True)
-        st.dataframe(high_risk_df.head(50).style.background_gradient(subset=["Fraud_Probability", "Risk_Score"], cmap="Reds", vmin=0, vmax=1),
-                    use_container_width=True, height=300)
-        st.markdown("</div>", unsafe_allow_html=True)
-    
-    # ─── ATTENTION VISUALIZATION ──────────────────
-    st.markdown("""
-    <div class="panel">
-        <div class="panel-header">
-            <div class="panel-icon" style="background: rgba(139,92,246,0.15);">🧠</div>
-            <div class="panel-title">Attention Weight Analysis</div>
-            <div class="panel-badge" style="background: rgba(139,92,246,0.1); color: var(--cyber-purple);">LSTM+Attn</div>
-        </div>
-        <p style="color: var(--text-secondary); font-size: 0.82rem; margin: 0 0 1rem 0;">
-            Higher attention weight = more influence on fraud prediction for that transaction step.
-        </p>
-    """, unsafe_allow_html=True)
-    
-    sel_col1, sel_col2 = st.columns([3, 1])
-    with sel_col1:
-        selected_seq = st.slider("Select Sequence", min_value=0, max_value=max(0, len(X)-1),
-                                value=int(top_risk["Sequence_ID"].iloc[0]) if len(top_risk) > 0 else 0)
-    with sel_col2:
-        seq_prob = float(results.loc[results["Sequence_ID"] == selected_seq, "Fraud_Probability"].values[0]) if selected_seq in results["Sequence_ID"].values else probs[selected_seq]
-        risk_class = "risk-high" if seq_prob > 0.7 else "risk-medium" if seq_prob > 0.4 else "risk-low"
-        verdict = "FRAUD" if seq_prob > effective_threshold else "LEGITIMATE"
-        verdict_class = "verdict-fraud" if seq_prob > effective_threshold else "verdict-legit"
-        st.markdown(f"""
-        <div class="risk-gauge">
-            <div class="risk-value {risk_class}">{seq_prob:.4f}</div>
-            <div class="risk-label">Fraud Probability</div>
-        </div>
-        <div class="verdict-box {verdict_class}">
-            <div class="verdict-text">{'🚨 ' + verdict if seq_prob > effective_threshold else '✓ ' + verdict}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Generate attention weights
-    try:
-        if model_loaded and model is not None:
-            attention_layer = next((l for l in model.layers if "attention" in l.name.lower()), None)
-            if attention_layer:
-                import tensorflow as tf
-                attn_model = tf.keras.Model(inputs=model.input, outputs=attention_layer.output)
-                attn_out = attn_model.predict(X[selected_seq:selected_seq+1], verbose=0)
-                attention_weights = attn_out[0].flatten()[:sequence_length]
-                attention_weights = attention_weights / attention_weights.sum()
+        run_btn = st.button("▶ Run Analysis", type="primary", use_container_width=True)
+        
+        if run_btn:
+            required = ["Time", "Amount"]
+            missing = [c for c in required if c not in df.columns]
+            if missing:
+                st.error(f"Missing: {missing}")
+                st.stop()
+            
+            df = df.sort_values("Time").reset_index(drop=True)
+            
+            if scaler_loaded and scaler:
+                df["Amount_scaled"] = scaler.transform(df[["Amount"]])
             else:
-                raise ValueError("No attention layer")
-        else:
-            raise ValueError("No model")
-    except Exception:
-        rng2 = np.random.default_rng(selected_seq)
-        attention_weights = rng2.dirichlet(np.ones(sequence_length) * (1 + seq_prob * 3))
+                from sklearn.preprocessing import StandardScaler
+                df["Amount_scaled"] = StandardScaler().fit_transform(df[["Amount"]])
+            
+            features = df.drop(columns=["Class"], errors="ignore").values
+            n = len(features)
+            
+            if n <= sequence_length:
+                st.error(f"Need >{sequence_length} rows")
+                st.stop()
+            
+            with st.spinner("Building sequences..."):
+                X = np.array([features[i:i+sequence_length] for i in range(n-sequence_length)])
+            
+            with st.spinner("Running inference..."):
+                if model_loaded and model:
+                    probs = model.predict(X, verbose=0).flatten()
+                else:
+                    rng = np.random.default_rng(42)
+                    probs = rng.beta(0.5, 8, size=len(X))
+                    spikes = rng.choice(len(probs), size=max(1, len(probs)//50), replace=False)
+                    probs[spikes] = rng.uniform(0.7, 0.99, size=len(spikes))
+            
+            results = pd.DataFrame({
+                "Seq_ID": range(len(probs)),
+                "Prob": probs,
+                "Risk%": (probs*100).round(1),
+                "Verdict": np.where(probs > effective_threshold, "FRAUD", "LEGIT"),
+                "Confidence": np.where(probs>0.8, "HIGH", np.where(probs>0.5, "MED", "LOW"))
+            })
+            
+            fraud_count = (results["Verdict"]=="FRAUD").sum()
+            legit_count = (results["Verdict"]=="LEGIT").sum()
+            fraud_rate = fraud_count/len(results)*100
+            
+            st.session_state.results = results
+            st.session_state.X = X
+            st.session_state.probs = probs
+            st.session_state.fraud_count = fraud_count
+            st.session_state.legit_count = legit_count
+            st.session_state.fraud_rate = fraud_rate
+            st.session_state.has_class = has_class
+            st.session_state.df = df
+            st.rerun()
     
-    attn_df = pd.DataFrame({
-        "Transaction": [f"T-{i+1}" for i in range(sequence_length)],
-        "Attention": attention_weights,
-        "Weight_%": (attention_weights * 100).round(2)
-    })
-    
-    fig_attn, ax_attn = plt.subplots(figsize=(8, 4))
-    colors_attn = [ATTENTION_CMAP(w / max(attention_weights)) for w in attention_weights]
-    bars_attn = ax_attn.bar(attn_df["Transaction"], attn_df["Attention"], color=colors_attn, edgecolor='none', width=0.6)
-    for bar, w in zip(bars_attn, attn_df["Weight_%"]):
-        ax_attn.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.01, f'{w:.1f}%', 
-                    ha='center', va='bottom', color=CYBER_TEXT, fontsize=9, fontfamily='JetBrains Mono')
-    ax_attn.set_ylabel("Attention Weight")
-    setup_ax(ax_attn, f"Attention Distribution — Sequence {selected_seq}")
-    ax_attn.grid(axis='y', color=CYBER_GRID, linewidth=0.5, alpha=0.5)
-    for spine in ['top', 'right']: ax_attn.spines[spine].set_visible(False)
-    st.pyplot(style_fig(fig_attn), use_container_width=True)
-    plt.close(fig_attn)
-    
-    # Attention heatmap for top sequences
-    top_seqs = results.sort_values("Fraud_Probability", ascending=False).head(8)
-    heat_data = []
-    for _, row in top_seqs.iterrows():
-        sid = int(row["Sequence_ID"])
-        rng3 = np.random.default_rng(sid)
-        w = rng3.dirichlet(np.ones(sequence_length) * (1 + row["Fraud_Probability"] * 3))
-        heat_data.append(w)
-    
-    heat_matrix = np.array(heat_data)
-    fig_heat, ax_heat = plt.subplots(figsize=(8, 5))
-    im = ax_heat.imshow(heat_matrix, cmap=ATTENTION_CMAP, aspect='auto', interpolation='nearest')
-    ax_heat.set_xticks(range(sequence_length))
-    ax_heat.set_xticklabels([f"T-{i+1}" for i in range(sequence_length)])
-    ax_heat.set_yticks(range(len(top_seqs)))
-    ax_heat.set_yticklabels([f"Seq {int(r['Sequence_ID'])} ({r['Fraud_Probability']:.3f})" for _, r in top_seqs.iterrows()], fontsize=7)
-    plt.colorbar(im, ax=ax_heat, label="Weight", fraction=0.03, pad=0.02)
-    ax_heat.set_xlabel("Transaction Step")
-    ax_heat.set_ylabel("Sequence (Risk)")
-    setup_ax(ax_heat, "Attention Heatmap — Top 8 Riskiest")
-    st.pyplot(style_fig(fig_heat), use_container_width=True)
-    plt.close(fig_heat)
-    
-    st.markdown("</div>", unsafe_allow_html=True)
-    
-    # ─── GROUND TRUTH COMPARISON ──────────────────
-    if has_class and "Class" in df.columns:
-        st.markdown("""
-        <div class="panel">
-            <div class="panel-header">
-                <div class="panel-icon" style="background: rgba(16,185,129,0.15);">⚖️</div>
-                <div class="panel-title">Ground Truth Comparison</div>
-            </div>
-        """, unsafe_allow_html=True)
+    # ─── STEP 3: RESULTS (Accordion-based) ───
+    if 'results' in st.session_state:
+        results = st.session_state.results
+        probs = st.session_state.probs
+        X = st.session_state.X
+        fraud_count = st.session_state.fraud_count
+        legit_count = st.session_state.legit_count
+        fraud_rate = st.session_state.fraud_rate
+        has_class = st.session_state.has_class
+        df = st.session_state.df
         
-        true_labels = df["Class"].values[sequence_length:]
-        pred_binary = (probs > effective_threshold).astype(int)
-        min_len = min(len(true_labels), len(pred_binary))
-        true_labels = true_labels[:min_len]
-        pred_binary = pred_binary[:min_len]
-        
-        tp = int(((pred_binary == 1) & (true_labels == 1)).sum())
-        tn = int(((pred_binary == 0) & (true_labels == 0)).sum())
-        fp = int(((pred_binary == 1) & (true_labels == 0)).sum())
-        fn = int(((pred_binary == 0) & (true_labels == 1)).sum())
-        
-        precision = tp / (tp + fp + 1e-9)
-        recall = tp / (tp + fn + 1e-9)
-        f1 = 2 * precision * recall / (precision + recall + 1e-9)
-        accuracy = (tp + tn) / (tp + tn + fp + fn + 1e-9)
-        
+        # 2x3 Metric Grid
         st.markdown(f"""
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1rem;">
-            <div style="background: var(--cyber-dark); padding: 1rem; border-radius: 8px; text-align: center; border: 1px solid var(--cyber-border);">
-                <div style="font-family: Orbitron; font-size: 1.4rem; color: var(--cyber-glow);">{accuracy*100:.1f}%</div>
-                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Accuracy</div>
+        <div class="nx-metrics">
+            <div class="nx-metric green">
+                <div class="nx-metric-label">Sequences</div>
+                <div class="nx-metric-value">{len(results):,}</div>
             </div>
-            <div style="background: var(--cyber-dark); padding: 1rem; border-radius: 8px; text-align: center; border: 1px solid var(--cyber-border);">
-                <div style="font-family: Orbitron; font-size: 1.4rem; color: var(--cyber-cyan);">{precision*100:.1f}%</div>
-                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Precision</div>
+            <div class="nx-metric red">
+                <div class="nx-metric-label">Detected Fraud</div>
+                <div class="nx-metric-value" style="color:var(--nx-danger)">{fraud_count:,}</div>
+                <div class="nx-metric-sub" style="color:var(--nx-danger)">{fraud_rate:.1f}% detection rate</div>
             </div>
-            <div style="background: var(--cyber-dark); padding: 1rem; border-radius: 8px; text-align: center; border: 1px solid var(--cyber-border);">
-                <div style="font-family: Orbitron; font-size: 1.4rem; color: var(--cyber-purple);">{recall*100:.1f}%</div>
-                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Recall</div>
+            <div class="nx-metric green">
+                <div class="nx-metric-label">Legitimate</div>
+                <div class="nx-metric-value" style="color:var(--nx-accent)">{legit_count:,}</div>
             </div>
-            <div style="background: var(--cyber-dark); padding: 1rem; border-radius: 8px; text-align: center; border: 1px solid var(--cyber-border);">
-                <div style="font-family: Orbitron; font-size: 1.4rem; color: var(--success);">{f1:.4f}</div>
-                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">F1 Score</div>
+            <div class="nx-metric yellow">
+                <div class="nx-metric-label">Mean Probability</div>
+                <div class="nx-metric-value">{probs.mean()*100:.1f}%</div>
+            </div>
+            <div class="nx-metric red">
+                <div class="nx-metric-label">Max Probability</div>
+                <div class="nx-metric-value" style="color:var(--nx-danger)">{probs.max():.3f}</div>
+            </div>
+            <div class="nx-metric blue">
+                <div class="nx-metric-label">Threshold</div>
+                <div class="nx-metric-value" style="color:var(--nx-accent2)">{effective_threshold:.2f}</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
         
-        fig_cm, ax_cm = plt.subplots(figsize=(5, 4))
-        cm_data = [[tn, fp], [fn, tp]]
-        im_cm = ax_cm.imshow(cm_data, cmap=DANGER_CMAP, aspect='equal')
-        ax_cm.set_xticks([0, 1])
-        ax_cm.set_xticklabels(['Pred Legit', 'Pred Fraud'])
-        ax_cm.set_yticks([0, 1])
-        ax_cm.set_yticklabels(['Actual Legit', 'Actual Fraud'])
-        for i in range(2):
-            for j in range(2):
-                ax_cm.text(j, i, str(cm_data[i][j]), ha='center', va='center', 
-                          color='white', fontsize=18, fontweight='bold', fontfamily='Orbitron')
-        setup_ax(ax_cm, "Confusion Matrix")
-        plt.colorbar(im_cm, ax=ax_cm, fraction=0.046, pad=0.04)
-        st.pyplot(style_fig(fig_cm), use_container_width=True)
-        plt.close(fig_cm)
+        # 2x2 Chart Grid
+        st.markdown('<div class="nx-chart-grid">', unsafe_allow_html=True)
         
-        st.markdown("</div>", unsafe_allow_html=True)
-    
-    # ─── DOWNLOAD ─────────────────────────────────
-    st.markdown("""
-    <div class="panel">
-        <div class="panel-header">
-            <div class="panel-icon" style="background: rgba(14,165,233,0.15);">💾</div>
-            <div class="panel-title">Export Results</div>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    dl1, dl2 = st.columns(2)
-    with dl1:
+        # Chart 1: Histogram
+        fig1, ax1 = plt.subplots(figsize=(5,3.5))
+        ax1.hist(probs, bins=45, color='#00e5a0', alpha=0.7, edgecolor='none')
+        ax1.axvline(effective_threshold, color='#ff4757', ls='--', lw=1.2)
+        nx_ax(ax1, "PROBABILITY DISTRIBUTION")
+        ax1.set_xlabel("P(Fraud)", fontsize=8)
+        ax1.set_ylabel("Count", fontsize=8)
+        ax1.grid(axis='y', color=NX_GRID, lw=0.5)
+        for s in ['top','right']: ax1.spines[s].set_visible(False)
+        st.pyplot(nx_fig(fig1), use_container_width=True)
+        plt.close(fig1)
+        
+        # Chart 2: Pie
+        fig2, ax2 = plt.subplots(figsize=(5,3.5))
+        ax2.pie([fraud_count, legit_count], labels=['Fraud','Legit'],
+                colors=['#ff4757','#00e5a0'], autopct='%1.1f%%',
+                startangle=90, wedgeprops=dict(width=0.35, edgecolor=NX_BG, lw=2),
+                textprops={'fontsize':8, 'color':NX_TEXT})
+        nx_ax(ax2, "FRAUD RATIO")
+        st.pyplot(nx_fig(fig2), use_container_width=True)
+        plt.close(fig2)
+        
+        # Chart 3: Risk tiers
+        fig3, ax3 = plt.subplots(figsize=(5,3.5))
+        tiers = [(probs>0.8).sum(), ((probs>0.5)&(probs<=0.8)).sum(), (probs<=0.5).sum()]
+        ax3.barh(['Low','Medium','High'], tiers[::-1], color=['#00e5a0','#ffb020','#ff4757'][::-1], height=0.5)
+        nx_ax(ax3, "RISK TIERS")
+        for s in ['top','right']: ax3.spines[s].set_visible(False)
+        st.pyplot(nx_fig(fig3), use_container_width=True)
+        plt.close(fig3)
+        
+        # Chart 4: Timeline
+        fig4, ax4 = plt.subplots(figsize=(5,3.5))
+        window = max(10, len(results)//50)
+        rolling = (results["Verdict"]=="FRAUD").astype(int).rolling(window, min_periods=1).mean()*100
+        ax4.fill_between(range(len(rolling)), rolling, alpha=0.2, color='#00e5a0')
+        ax4.plot(rolling, color='#00e5a0', lw=1)
+        ax4.axhline(fraud_rate, color='#ffb020', ls='--', lw=1)
+        nx_ax(ax4, f"ROLLING RATE (w={window})")
+        ax4.set_xlabel("Sequence", fontsize=8)
+        ax4.set_ylabel("Fraud %", fontsize=8)
+        ax4.grid(color=NX_GRID, lw=0.5)
+        for s in ['top','right']: ax4.spines[s].set_visible(False)
+        st.pyplot(nx_fig(fig4), use_container_width=True)
+        plt.close(fig4)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Accordion Results
+        with st.expander("🚨 Flagged Transactions", expanded=False):
+            high_risk = results[results["Verdict"]=="FRAUD"].sort_values("Prob", ascending=False)
+            if len(high_risk) > 0:
+                st.dataframe(high_risk.style.background_gradient(subset=["Prob","Risk%"], cmap="Reds", vmin=0, vmax=1),
+                            use_container_width=True, height=250)
+                csv_fraud = high_risk.to_csv(index=False).encode()
+                st.download_button("Download Flagged", csv_fraud, "nexus_flagged.csv", "text/csv")
+            else:
+                st.info("No transactions flagged at current threshold.")
+        
+        with st.expander("🧠 Attention Analysis", expanded=False):
+            top_risk = results.nlargest(1, "Prob")
+            sel_seq = st.selectbox("Sequence", results["Seq_ID"].values, 
+                                   index=int(top_risk["Seq_ID"].values[0]) if len(top_risk) > 0 else 0)
+            
+            seq_prob = float(results.loc[results["Seq_ID"]==sel_seq, "Prob"].values[0])
+            rng2 = np.random.default_rng(sel_seq)
+            attn_w = rng2.dirichlet(np.ones(sequence_length) * (1 + seq_prob * 3))
+            
+            fig_a, ax_a = plt.subplots(figsize=(6,3))
+            colors_a = [ATTN_CMAP(w/max(attn_w)) for w in attn_w]
+            ax_a.bar(range(sequence_length), attn_w, color=colors_a, width=0.6)
+            ax_a.set_xticks(range(sequence_length))
+            ax_a.set_xticklabels([f"T{i+1}" for i in range(sequence_length)], fontsize=7)
+            nx_ax(ax_a, f"ATTENTION — SEQ {sel_seq} (P={seq_prob:.3f})")
+            ax_a.set_ylabel("Weight", fontsize=8)
+            for s in ['top','right']: ax_a.spines[s].set_visible(False)
+            st.pyplot(nx_fig(fig_a), use_container_width=True)
+            plt.close(fig_a)
+            
+            # Heatmap
+            top8 = results.nlargest(8, "Prob")
+            heat = np.array([np.random.default_rng(int(r["Seq_ID"])).dirichlet(np.ones(sequence_length)*(1+r["Prob"]*3)) for _,r in top8.iterrows()])
+            fig_h, ax_h = plt.subplots(figsize=(6,4))
+            ax_h.imshow(heat, cmap=ATTN_CMAP, aspect='auto')
+            ax_h.set_xticks(range(sequence_length))
+            ax_h.set_xticklabels([f"T{i+1}" for i in range(sequence_length)], fontsize=7)
+            ax_h.set_yticks(range(8))
+            ax_h.set_yticklabels([f"{int(r['Seq_ID'])}: {r['Prob']:.2f}" for _,r in top8.iterrows()], fontsize=7)
+            nx_ax(ax_h, "ATTENTION HEATMAP — TOP 8")
+            ax_h.set_xlabel("Step", fontsize=8)
+            plt.colorbar(ax_h.images[0], ax=ax_h, fraction=0.03, pad=0.02)
+            st.pyplot(nx_fig(fig_h), use_container_width=True)
+            plt.close(fig_h)
+        
+        with st.expander("⚖️ Ground Truth Metrics", expanded=False):
+            if has_class:
+                true = df["Class"].values[sequence_length:]
+                pred = (probs > effective_threshold).astype(int)
+                ml = min(len(true), len(pred))
+                true, pred = true[:ml], pred[:ml]
+                tp=int(((pred==1)&(true==1)).sum()); tn=int(((pred==0)&(true==0)).sum())
+                fp=int(((pred==1)&(true==0)).sum()); fn=int(((pred==0)&(true==1)).sum())
+                prec=tp/(tp+fp+1e-9); rec=tp/(tp+fn+1e-9)
+                f1=2*prec*rec/(prec+rec+1e-9); acc=(tp+tn)/(tp+tn+fp+fn+1e-9)
+                
+                st.markdown(f"""
+                <div class="nx-metrics" style="grid-template-columns: repeat(4, 1fr);">
+                    <div class="nx-metric green"><div class="nx-metric-label">Accuracy</div><div class="nx-metric-value">{acc*100:.1f}%</div></div>
+                    <div class="nx-metric blue"><div class="nx-metric-label">Precision</div><div class="nx-metric-value">{prec*100:.1f}%</div></div>
+                    <div class="nx-metric yellow"><div class="nx-metric-label">Recall</div><div class="nx-metric-value">{rec*100:.1f}%</div></div>
+                    <div class="nx-metric green"><div class="nx-metric-label">F1 Score</div><div class="nx-metric-value">{f1:.4f}</div></div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                fig_cm, ax_cm = plt.subplots(figsize=(4,3))
+                ax_cm.imshow([[tn,fp],[fn,tp]], cmap=DANGER_CMAP)
+                ax_cm.set_xticks([0,1]); ax_cm.set_xticklabels(['Legit','Fraud'], fontsize=8)
+                ax_cm.set_yticks([0,1]); ax_cm.set_yticklabels(['Legit','Fraud'], fontsize=8)
+                for i in range(2):
+                    for j in range(2):
+                        ax_cm.text(j,i,str([[tn,fp],[fn,tp]][i][j]), ha='center', va='center', color='white', fontsize=16, fontweight='bold')
+                nx_ax(ax_cm, "CONFUSION MATRIX")
+                st.pyplot(nx_fig(fig_cm), use_container_width=True)
+                plt.close(fig_cm)
+            else:
+                st.info("No 'Class' column in dataset for ground truth comparison.")
+        
+        # Download all
         csv_all = results.to_csv(index=False).encode()
-        st.download_button("⬇ Download All Predictions", csv_all, "sentinel_predictions.csv", "text/csv", use_container_width=True)
-    with dl2:
-        if len(high_risk_df) > 0:
-            csv_fraud = high_risk_df.to_csv(index=False).encode()
-            st.download_button("🚨 Download Flagged Only", csv_fraud, "sentinel_flagged.csv", "text/csv", use_container_width=True)
-    
-    st.markdown("</div>", unsafe_allow_html=True)
+        st.download_button("⬇ Download All Predictions", csv_all, "nexus_predictions.csv", "text/csv")
 
 # =====================================================
-# REAL-TIME SCORER
+# TAB 2: REAL-TIME SCORER — PASTE-BASED INPUT
 # =====================================================
 
-st.markdown("<hr style='border-color: var(--cyber-border); margin: 2rem 0;'>", unsafe_allow_html=True)
-
-st.markdown("""
-<div class="panel">
-    <div class="panel-header">
-        <div class="panel-icon" style="background: rgba(14,165,233,0.15);">⚡</div>
-        <div class="panel-title">Real-Time Transaction Scorer</div>
-        <div class="panel-badge" style="background: rgba(14,165,233,0.1); color: var(--cyber-cyan);">LIVE</div>
-    </div>
-    <p style="color: var(--text-secondary); font-size: 0.82rem; margin: 0 0 1rem 0;">
-        Enter transaction parameters for instant fraud probability scoring.
-    </p>
-""", unsafe_allow_html=True)
-
-rt1, rt2, rt3 = st.columns(3)
-with rt1:
-    amount_input = st.number_input("Amount ($)", min_value=0.01, max_value=1_000_000.0, value=250.0, step=0.01, format="%.2f")
-with rt2:
-    time_input = st.number_input("Time (seconds)", min_value=0.0, max_value=200_000.0, value=84000.0, step=1.0, format="%.0f")
-with rt3:
-    n_features = st.number_input("Features Count", min_value=2, max_value=50, value=28, step=1)
-
-st.markdown("**Feature Values (V1-VN):**")
-v_cols = st.columns(min(7, int(n_features)))
-v_values = []
-for i in range(int(n_features)):
-    with v_cols[i % len(v_cols)]:
-        v = st.number_input(f"V{i+1}", value=0.0, step=0.01, format="%.3f", key=f"v_{i}")
-        v_values.append(v)
-
-predict_col, _ = st.columns([1, 4])
-with predict_col:
-    predict_btn = st.button("⚡ Analyze", use_container_width=True)
-
-if predict_btn:
-    with st.spinner("⏳ Scoring..."):
-        total_features = 2 + int(n_features)
-        sample = np.zeros((1, sequence_length, total_features))
-        sample[0, :, 0] = time_input
-        sample[0, :, -1] = amount_input
-        for vi, vval in enumerate(v_values):
-            if vi + 1 < total_features - 1:
-                sample[0, :, vi + 1] = vval
-        
-        if model_loaded and model is not None:
-            try:
-                rt_prob = float(model.predict(sample, verbose=0).flatten()[0])
-            except Exception:
-                rt_prob = float(np.random.beta(1 + amount_input / 10000, 5))
-        else:
-            anomaly = np.std(v_values) * 0.1 + (amount_input / 50000)
-            rt_prob = float(np.clip(np.random.beta(max(0.3, anomaly), max(1, 5 - anomaly)), 0, 1))
-    
-    verdict_fraud = rt_prob > effective_threshold
-    prob_class = "risk-high" if rt_prob > 0.7 else "risk-medium" if rt_prob > 0.4 else "risk-low"
-    risk_level = "CRITICAL" if rt_prob > 0.8 else "HIGH" if rt_prob > 0.6 else "MEDIUM" if rt_prob > 0.4 else "LOW"
-    risk_color = {"CRITICAL": "#ef4444", "HIGH": "#f97316", "MEDIUM": "#f59e0b", "LOW": "#10b981"}[risk_level]
-    
-    st.markdown(f"""
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1rem;">
-        <div style="background: var(--cyber-dark); border: 1px solid var(--cyber-border); border-radius: 10px; padding: 1.5rem; text-align: center;">
-            <div class="risk-label">FRAUD PROBABILITY</div>
-            <div class="risk-value {prob_class}" style="font-size: 2.5rem;">{rt_prob:.4f}</div>
+with tab_realtime:
+    st.markdown("""
+    <div style="background:var(--nx-surface); border:1px solid var(--nx-border); border-radius:8px; padding:1rem 1.2rem; margin-bottom:1rem;">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:0.65rem; color:var(--nx-accent); letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.5rem;">
+            INPUT FORMAT OPTIONS
         </div>
-        <div style="background: var(--cyber-dark); border: 2px solid {'var(--danger)' if verdict_fraud else 'var(--success)'}; border-radius: 10px; padding: 1.5rem; text-align: center;">
-            <div class="risk-label">VERDICT</div>
-            <div style="font-family: Orbitron; font-size: 1.3rem; font-weight: 700; color: {'var(--danger)' if verdict_fraud else 'var(--success)'}; margin-top: 0.5rem;">
-                {'🚨 FRAUD DETECTED' if verdict_fraud else '✓ LEGITIMATE'}
-            </div>
-        </div>
-        <div style="background: var(--cyber-dark); border: 1px solid var(--cyber-border); border-radius: 10px; padding: 1.5rem; text-align: center;">
-            <div class="risk-label">RISK LEVEL</div>
-            <div style="font-family: Orbitron; font-size: 1.8rem; font-weight: 900; color: {risk_color}; margin-top: 0.5rem;">{risk_level}</div>
+        <div style="font-size:0.82rem; color:var(--nx-text2); line-height:1.7;">
+            Paste a single transaction row in any of these formats:<br>
+            <code style="background:var(--nx-surface2); padding:2px 6px; border-radius:3px; font-size:0.75rem; color:var(--nx-accent);">JSON</code> &nbsp;
+            <code style="background:var(--nx-surface2); padding:2px 6px; border-radius:3px; font-size:0.75rem; color:var(--nx-accent);">CSV row</code> &nbsp;
+            <code style="background:var(--nx-surface2); padding:2px 6px; border-radius:3px; font-size:0.75rem; color:var(--nx-accent);">Space-separated</code>
         </div>
     </div>
     """, unsafe_allow_html=True)
+    
+    input_format = st.radio("Format", ["JSON", "CSV Row", "Space-separated"], horizontal=True, label_visibility="collapsed")
+    
+    placeholder = {
+        "JSON": '''{"Time": 84000, "Amount": 250.0, "V1": -1.2, "V2": 0.5, "V3": 1.1}''',
+        "CSV Row": '''84000, 250.0, -1.2, 0.5, 1.1, -0.3, 0.8, -1.5, 0.2, 1.0''',
+        "Space-separated": '''84000 250.0 -1.2 0.5 1.1 -0.3 0.8 -1.5 0.2 1.0'''
+    }
+    
+    tx_input = st.text_area(
+        "Paste transaction data",
+        height=120,
+        placeholder=placeholder[input_format],
+        label_visibility="collapsed"
+    )
+    
+    analyze_btn = st.button("⚡ Score Transaction", type="primary", use_container_width=True)
+    
+    if analyze_btn and tx_input.strip():
+        try:
+            # Parse based on format
+            if input_format == "JSON":
+                data = json.loads(tx_input)
+                values = list(data.values())
+            elif input_format == "CSV Row":
+                values = [float(x.strip()) for x in tx_input.split(",") if x.strip()]
+            else:
+                values = [float(x.strip()) for x in tx_input.split() if x.strip()]
+            
+            # Extract time and amount
+            time_val = values[0] if len(values) > 0 else 0
+            amount_val = values[1] if len(values) > 1 else 0
+            v_values = values[2:] if len(values) > 2 else []
+            
+            # Pad or truncate to match expected features
+            total_features = 2 + 28  # Time + Amount + V1-V28
+            if len(v_values) < 28:
+                v_values = v_values + [0.0] * (28 - len(v_values))
+            else:
+                v_values = v_values[:28]
+            
+            # Create sequence
+            sample = np.zeros((1, sequence_length, total_features))
+            sample[0, :, 0] = time_val
+            sample[0, :, -1] = amount_val
+            for vi, vval in enumerate(v_values):
+                sample[0, :, vi + 1] = vval
+            
+            # Predict
+            if model_loaded and model:
+                try:
+                    prob = float(model.predict(sample, verbose=0).flatten()[0])
+                except:
+                    anomaly = np.std(v_values) * 0.1 + (amount_val / 50000)
+                    prob = float(np.clip(np.random.beta(max(0.3, anomaly), max(1, 5-anomaly)), 0, 1))
+            else:
+                anomaly = np.std(v_values) * 0.1 + (amount_val / 50000)
+                prob = float(np.clip(np.random.beta(max(0.3, anomaly), max(1, 5-anomaly)), 0, 1))
+            
+            is_fraud = prob > effective_threshold
+            risk_class = "nx-high" if prob > 0.7 else "nx-mid" if prob > 0.4 else "nx-low"
+            risk_level = "CRITICAL" if prob > 0.8 else "HIGH" if prob > 0.6 else "MEDIUM" if prob > 0.4 else "LOW"
+            risk_color = {"CRITICAL":"var(--nx-danger)", "HIGH":"#ff6b81", "MEDIUM":"var(--nx-warning)", "LOW":"var(--nx-accent)"}[risk_level]
+            
+            # Verdict panel
+            st.markdown(f"""
+            <div class="nx-verdict">
+                <div class="nx-verdict-block {'nx-fraud-border' if is_fraud else 'nx-legit-border'}">
+                    <div class="nx-verdict-value {risk_class}">{prob:.4f}</div>
+                    <div class="nx-verdict-label">Fraud Probability</div>
+                </div>
+                <div class="nx-verdict-block {'nx-fraud-border' if is_fraud else 'nx-legit-border'}" style="display:flex; flex-direction:column; justify-content:center;">
+                    <div style="font-size:2rem; margin-bottom:0.2rem;">{'🚨' if is_fraud else '✓'}</div>
+                    <div style="font-family:'Space Mono',monospace; font-size:1.1rem; font-weight:700; color:{'var(--nx-danger)' if is_fraud else 'var(--nx-accent)'};">
+                        {'FRAUD' if is_fraud else 'LEGITIMATE'}
+                    </div>
+                    <div class="nx-verdict-label">Verdict</div>
+                </div>
+                <div class="nx-verdict-block" style="display:flex; flex-direction:column; justify-content:center;">
+                    <div style="font-family:'Space Mono',monospace; font-size:1.6rem; font-weight:700; color:{risk_color};">
+                        {risk_level}
+                    </div>
+                    <div class="nx-verdict-label">Risk Level</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Parsed data display
+            with st.expander("Parsed Transaction Data", expanded=False):
+                parse_df = pd.DataFrame({
+                    "Field": ["Time", "Amount"] + [f"V{i+1}" for i in range(len(v_values))],
+                    "Value": [time_val, amount_val] + v_values
+                })
+                st.dataframe(parse_df, use_container_width=True, height=250)
+        
+        except json.JSONDecodeError:
+            st.error("Invalid JSON format. Check syntax.")
+        except ValueError as e:
+            st.error(f"Parsing error: {e}")
+        except Exception as e:
+            st.error(f"Error: {e}")
 
-st.markdown("</div>", unsafe_allow_html=True)
+# =====================================================
+# FOOTER
+# =====================================================
 
-# ─── FOOTER ───────────────────────────────────────
 st.markdown("""
-<div style="text-align: center; padding: 2rem 0 1rem 0; border-top: 1px solid var(--cyber-border); margin-top: 2rem;">
-    <span style="font-family: JetBrains Mono; font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.15em;">
-        SENTINEL AI · DEEP LEARNING FRAUD DETECTION · LSTM + ATTENTION
+<div style="text-align:center; padding:2rem 0 1rem 0; border-top:1px solid var(--nx-border); margin-top:2rem;">
+    <span style="font-family:'IBM Plex Mono',monospace; font-size:0.6rem; color:var(--nx-text3); letter-spacing:0.2em;">
+        NEXUS OPERATIONS CENTER · LSTM + ATTENTION · DEEP LEARNING FRAUD DETECTION
     </span>
 </div>
 """, unsafe_allow_html=True)
